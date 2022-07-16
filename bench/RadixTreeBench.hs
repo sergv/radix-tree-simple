@@ -18,18 +18,12 @@ import qualified Data.Text.Lazy.IO as TLIO
 
 import qualified Data.HashTable.IO as HT
 
-import Gauge
+import Test.Tasty.Bench
 
 import qualified Data.RadixTree.Internal as RT
 
 main :: IO ()
 main = do
-  let config = defaultConfig
-        { resamples   = 10000
-        , displayMode = Condensed
-        , rerunsLimit = 1
-        }
-
   contents <- TLIO.readFile "/tmp/tags-ebac8dcc87fd1f1b1e7016d6585549309e3c5016-haskell-mode"
   let tags :: [TL.Text]
       tags = filter (not . TL.null) $ map (head . TL.splitOn "\t") $ drop 1 $ TL.lines contents
@@ -87,7 +81,7 @@ main = do
     -- HT.insert linear k v
     HT.insert cuckoo k v
 
-  defaultMainWith config
+  defaultMain
     [ bgroup "creation"
       [ bench "Data.RadixTree"  $ nf RT.fromList tags''
       , bench "Data.Map"        $ nf M.fromList tags''

@@ -79,13 +79,11 @@ test-suite radix-tree-test
   main-is:
     test/TestMain.hs
   build-depends:
-    , HUnit
     , QuickCheck
     , base >= 4.14 && < 5
     , bytestring
     , containers
     , tasty
-    , tasty-hunit
     , tasty-quickcheck
     , radix-tree
   ghc-options:
@@ -103,9 +101,9 @@ benchmark radix-tree-bench
     , bytestring
     , containers
     , deepseq
-    , gauge >= 0.2.3
     , hashtables
     , radix-tree
+    , tasty-bench
     , text
     , unordered-containers
   ghc-options:
