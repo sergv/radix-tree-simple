@@ -1,3 +1,4 @@
+cabal-version: 3.0
 name:
   radix-tree
 version:
@@ -12,7 +13,7 @@ description:
   tree datastructure. Memory efficiency is achieved by sharing common
   prefixes of all keys.
 license:
-  BSD3
+  Apache-2.0
 license-file:
   LICENSE
 author:
@@ -24,85 +25,71 @@ copyright:
 tested-with:
   GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3
 
-cabal-version:
-  2.0
 build-type:
   Simple
 
 homepage: https://github.com/sergv/radix-tree
 
 source-repository head
-    type: git
-    location: https://github.com/sergv/radix-tree.git
+  type: git
+  location: https://github.com/sergv/radix-tree.git
+
+common ghc-options
+  default-language:
+    Haskell2010
+
+  ghc-options:
+    -Weverything
+    -Wno-type-defaults
+    -Wno-implicit-prelude
+    -Wno-missing-local-signatures
+    -Wno-missing-import-lists
+    -Wno-missed-specialisations
+    -Wno-all-missed-specialisations
+    -Wno-safe
+    -Wno-missing-safe-haskell-mode
+    -Wno-unsafe
+
+  if impl(ghc >= 8.8)
+    ghc-options:
+      -Wno-missing-deriving-strategies
+
+  if impl(ghc >= 9.2)
+    ghc-options:
+      -Wno-missing-kind-signatures
 
 library
+  import: ghc-options
   exposed-modules:
     Data.RadixTree
     Data.RadixTree.Internal
   hs-source-dirs:
     src
   build-depends:
-    base >= 4.9 && < 5,
-    bytestring,
-    containers,
-    deepseq,
-    primitive
-  default-language:
-    Haskell2010
-  ghc-options:
-    -Wall
-    -fwarn-name-shadowing
-    -fno-warn-type-defaults
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wcompat
-      -Whi-shadowing
-      -Widentities
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-exported-signatures
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -Wcpp-undef
-      -Wmissing-home-modules
-      -Wunbanged-strict-patterns
+    , base >= 4.9 && < 5
+    , bytestring
+    , containers
+    , deepseq
+    , primitive
 
 test-suite radix-tree-test
+  import: ghc-options
   type:
     exitcode-stdio-1.0
   main-is:
     test/TestMain.hs
   build-depends:
-    HUnit,
-    QuickCheck,
-    base >= 4.9 && < 5,
-    bytestring,
-    containers,
-    tasty,
-    tasty-hunit,
-    tasty-quickcheck,
-    radix-tree
-  default-language:
-    Haskell2010
+    , HUnit
+    , QuickCheck
+    , base >= 4.14 && < 5
+    , bytestring
+    , containers
+    , tasty
+    , tasty-hunit
+    , tasty-quickcheck
+    , radix-tree
   ghc-options:
     -rtsopts
-    -Wall
-    -fwarn-name-shadowing
-    -fno-warn-type-defaults
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wall-missed-specialisations
-      -Wcompat
-      -Whi-shadowing
-      -Widentities
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-exported-signatures
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -Wcpp-undef
-      -Wmissing-home-modules
-      -Wunbanged-strict-patterns
 
 benchmark radix-tree-bench
   type:
@@ -112,32 +99,14 @@ benchmark radix-tree-bench
   hs-source-dirs:
     . bench
   build-depends:
-    base >= 4.9 && < 5,
-    bytestring,
-    containers,
-    deepseq,
-    gauge >= 0.2.3,
-    hashtables,
-    radix-tree,
-    text,
-    unordered-containers
-  default-language:
-    Haskell2010
+    , base >= 4.14 && < 5
+    , bytestring
+    , containers
+    , deepseq
+    , gauge >= 0.2.3
+    , hashtables
+    , radix-tree
+    , text
+    , unordered-containers
   ghc-options:
     -rtsopts
-    -Wall
-    -fwarn-name-shadowing
-    -fno-warn-type-defaults
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wcompat
-      -Whi-shadowing
-      -Widentities
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-exported-signatures
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -Wcpp-undef
-      -Wmissing-home-modules
-      -Wunbanged-strict-patterns

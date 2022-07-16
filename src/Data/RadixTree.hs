@@ -10,7 +10,7 @@
 ----------------------------------------------------------------------------
 
 module Data.RadixTree
-  (  RadixTree
+  ( RadixTree
   , empty
   , null
   , size

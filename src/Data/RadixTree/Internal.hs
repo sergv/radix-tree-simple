@@ -16,6 +16,7 @@
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DeriveTraversable   #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -49,17 +50,17 @@ import Control.Monad.ST
 import Control.Monad.ST.Unsafe
 
 import Data.ByteString.Short (ShortByteString)
-import qualified Data.ByteString.Short as BSS
-import qualified Data.ByteString.Short.Internal as BSSI
-import qualified Data.Foldable as Foldable
+import Data.ByteString.Short qualified as BSS
+import Data.ByteString.Short.Internal qualified as BSSI
+import Data.Foldable qualified as Foldable
 import Data.IntMap (IntMap)
-import qualified Data.IntMap.Strict as IM
-import qualified Data.List as L
+import Data.IntMap.Strict qualified as IM
+import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Primitive.ByteArray
 import Data.Semigroup as Semigroup
 import Data.Set (Set)
-import qualified Data.Set as S
+import Data.Set qualified as S
 import Data.Word
 import GHC.Generics (Generic)
 
@@ -118,8 +119,8 @@ byteArrayToBSS :: ByteArray -> BSS.ShortByteString
 byteArrayToBSS (ByteArray xs) = BSSI.SBS xs
 
 dropShortByteString :: Int -> ShortByteString -> ShortByteString
-dropShortByteString 0  src = src
-dropShortByteString !n (BSSI.SBS source) = runST $ do
+dropShortByteString 0 src = src
+dropShortByteString n (BSSI.SBS source) = runST $ do
   dest <- newByteArray sz
   copyByteArray dest 0 source' n sz
   byteArrayToBSS <$> unsafeFreezeByteArray dest
@@ -133,9 +134,9 @@ singletonShortByteString !c = runST $ do
   writeByteArray dest 0 c
   byteArrayToBSS <$> unsafeFreezeByteArray dest
 
-{-# INLINE unsafeHeadeShortByteString #-}
-unsafeHeadeShortByteString :: ShortByteString -> Word8
-unsafeHeadeShortByteString = (`BSSI.unsafeIndex` 0)
+{-# INLINE unsafeHeadShortByteString #-}
+unsafeHeadShortByteString :: ShortByteString -> Word8
+unsafeHeadShortByteString = (`BSSI.unsafeIndex` 0)
 
 data Mismatch
   = IsPrefix
@@ -274,6 +275,7 @@ insert' f key value = go 0
               where
                 i'         = i + BSS.length prefix
                 isKeyEnded = i' >= len
+                mid' :: Int
                 mid'       = fromIntegral mid
       | otherwise
       = \case
@@ -417,7 +419,8 @@ unionWith f = go
               Nothing     -> rest''
               Just child' -> go child' rest''
         where
-          h = fromIntegral $ unsafeHeadeShortByteString str'
+          h :: Int
+          h = fromIntegral $ unsafeHeadShortByteString str'
       (RadixStr val str rest, RadixNode val' children') ->
         RadixNode (combineVals val val') $
           (\g -> IM.alter g h children') $ \child ->
@@ -427,7 +430,8 @@ unionWith f = go
               Nothing     -> rest'
               Just child' -> go rest' child'
         where
-          h = fromIntegral $ unsafeHeadeShortByteString str
+          h :: Int
+          h = fromIntegral $ unsafeHeadShortByteString str
       (RadixStr val str rest, RadixStr val' str' rest') ->
         case analyseMismatch str 0 str' of
           -- str' is a prefix of str
