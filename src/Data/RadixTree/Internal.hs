@@ -96,18 +96,18 @@ interleaveST =
 
 splitShortByteString :: Int -> ShortByteString -> (ShortByteString, ShortByteString, Word8, ShortByteString)
 splitShortByteString n (BSSI.SBS source) = runST $ do
-  prefix <- newByteArray prefixSize
+  prefix    <- newByteArray prefixSize
   copyByteArray prefix 0 source' 0 prefixSize
-  ByteArray prefix# <- unsafeFreezeByteArray prefix
-  midSuffix         <- interleaveST $ do
+  prefix'   <- unsafeFreezeByteArray prefix
+  midSuffix <- interleaveST $ do
     midSuffix <- newByteArray midSuffixSize
     copyByteArray midSuffix 0 source' n midSuffixSize
     unsafeFreezeByteArray midSuffix
-  suffix            <- interleaveST $ do
+  suffix    <- interleaveST $ do
     suffix <- newByteArray suffixSize
     copyByteArray suffix 0 source' (n + 1) suffixSize
     unsafeFreezeByteArray suffix
-  pure (BSSI.SBS prefix#, byteArrayToBSS midSuffix, indexByteArray source' n, byteArrayToBSS suffix)
+  pure (byteArrayToBSS prefix', byteArrayToBSS midSuffix, indexByteArray source' n, byteArrayToBSS suffix)
   where
     source' = ByteArray source
     prefixSize = n
