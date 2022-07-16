@@ -343,30 +343,30 @@ toList = toAscList
 
 -- | O(n) Convert a radix tree to an ascending list of key-value pairs.
 toAscList :: forall a. RadixTree a -> [(ShortByteString, a)]
-toAscList = map (first BSS.pack) . go
+toAscList = map (first BSS.concat) . go
   where
-    go :: RadixTree a -> [([Word8], a)]
+    go :: RadixTree a -> [([ShortByteString], a)]
     go = \case
       RadixNode val children ->
-        maybe id (\val' ys -> ([], val') : ys) val $
-        IM.foldMapWithKey (\c child -> map (first (fromIntegral c :)) $ go child) children
+        maybe id (\val' ys -> ([] , val') : ys) val $
+        IM.foldMapWithKey (\c child -> map (first (BSS.singleton (fromIntegral c) :)) $ go child) children
       RadixStr val packedKey rest ->
         maybe id (\val' ys -> ([], val') : ys) val $
-        map (first (BSS.unpack packedKey ++)) $
+        map (first (packedKey : )) $
         go rest
 
 -- | O(n) Get all keys stored in a radix tree.
 keys :: RadixTree a -> [ShortByteString]
-keys = map BSS.pack . go
+keys = map BSS.concat . go
   where
-    go :: RadixTree a -> [[Word8]]
+    go :: RadixTree a -> [[ShortByteString]]
     go = \case
       RadixNode val children ->
         maybe id (\_ ys -> [] : ys) val $
-        IM.foldMapWithKey (\c child -> map (fromIntegral c :) $ go child) children
+        IM.foldMapWithKey (\c child -> map (BSS.singleton (fromIntegral c) :) $ go child) children
       RadixStr val packedKey rest ->
         maybe id (\_ ys -> [] : ys) val $
-        map (BSS.unpack packedKey <>) $
+        map (packedKey :) $
         go rest
 
 -- | O(n) Get set of all keys stored in a radix tree.
