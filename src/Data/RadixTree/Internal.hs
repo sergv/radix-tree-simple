@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.RadixTree.Internal
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache 2.0
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- This is an internal module that exposes innards of the 'RadixTree'
@@ -12,13 +12,10 @@
 
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
@@ -44,7 +41,6 @@ module Data.RadixTree.Internal
 
 import Prelude hiding (lookup, null)
 
-import Control.Arrow (first)
 import Control.DeepSeq
 import Control.Monad.ST
 import Control.Monad.ST.Unsafe
@@ -117,6 +113,10 @@ splitShortByteString n (BSSI.SBS source) = runST $ do
 {-# INLINE byteArrayToBSS #-}
 byteArrayToBSS :: ByteArray -> BSS.ShortByteString
 byteArrayToBSS (ByteArray xs) = BSSI.SBS xs
+
+{-# INLINE bSSToByteArray #-}
+bSSToByteArray :: BSS.ShortByteString -> ByteArray
+bSSToByteArray (BSSI.SBS xs) = ByteArray xs
 
 dropShortByteString :: Int -> ShortByteString -> ShortByteString
 dropShortByteString 0 src = src
@@ -343,31 +343,102 @@ toList = toAscList
 
 -- | O(n) Convert a radix tree to an ascending list of key-value pairs.
 toAscList :: forall a. RadixTree a -> [(ShortByteString, a)]
-toAscList = map (first BSS.concat) . go
+toAscList tree = runST $ interleaveST $ do
+  store <- newByteArray 8
+  snd <$> go store 0 [] tree
   where
-    go :: RadixTree a -> [([ShortByteString], a)]
-    go = \case
-      RadixNode val children ->
-        maybe id (\val' ys -> ([] , val') : ys) val $
-        IM.foldMapWithKey (\c child -> map (first (BSS.singleton (fromIntegral c) :)) $ go child) children
-      RadixStr val packedKey rest ->
-        maybe id (\val' ys -> ([], val') : ys) val $
-        map (first (packedKey : )) $
-        go rest
+    prependIfJust
+      :: Maybe a
+      -> Int
+      -> (MutableByteArray s, [(ShortByteString, a)])
+      -> ST s (MutableByteArray s, [(ShortByteString, a)])
+    prependIfJust Nothing  _ res       = pure res
+    prependIfJust (Just v) i (arr, xs) = do
+      x <- freezeByteArray arr 0 i
+      pure (arr, (byteArrayToBSS x, v) : xs)
+
+    go
+      :: MutableByteArray s
+      -> Int
+      -> [(ShortByteString, a)]
+      -> RadixTree a
+      -> ST s (MutableByteArray s, [(ShortByteString, a)])
+    go arr !pos acc = \case
+      RadixNode val children -> do
+        prependIfJust val pos =<<
+          IM.foldrWithKey (\c child mkAcc -> do
+                              (arr', acc') <- mkAcc
+                              arr''        <- appendChar arr' pos (fromIntegral c)
+                              go arr'' (pos + 1) acc' child)
+            (pure (arr, acc))
+            children
+      RadixStr val packedKey rest -> do
+        arr' <- appendString arr pos packedKey
+        prependIfJust val pos =<< go arr' (pos + BSS.length packedKey) acc rest
+
+appendChar :: MutableByteArray s -> Int -> Word8 -> ST s (MutableByteArray s)
+appendChar arr pos c = do
+  let !capacity = sizeofMutableByteArray arr
+  arr' <-
+    if pos >= capacity
+    then resizeMutableByteArray arr (capacity * 2)
+    else pure arr
+  writeByteArray arr' pos c
+  pure arr'
+
+appendString :: MutableByteArray s -> Int -> ShortByteString -> ST s (MutableByteArray s)
+appendString arr pos str = do
+  let !strArr    = bSSToByteArray str
+      !strLen    = BSS.length str
+      !capacity  = sizeofMutableByteArray arr
+      !capacity' = pickSize capacity $! pos + strLen
+  arr' <-
+    if capacity == capacity'
+    then pure arr
+    else resizeMutableByteArray arr capacity'
+  copyByteArray arr' pos strArr 0 strLen
+  pure arr'
+  where
+    pickSize :: Int -> Int -> Int
+    pickSize current target
+      | current < target = pickSize (current * 2) target
+      | otherwise        = current
 
 -- | O(n) Get all keys stored in a radix tree.
 keys :: RadixTree a -> [ShortByteString]
-keys = map BSS.concat . go
+keys tree = runST $ interleaveST $ do
+  store <- newByteArray 8
+  snd <$> go store 0 [] tree
   where
-    go :: RadixTree a -> [[ShortByteString]]
-    go = \case
-      RadixNode val children ->
-        maybe id (\_ ys -> [] : ys) val $
-        IM.foldMapWithKey (\c child -> map (BSS.singleton (fromIntegral c) :) $ go child) children
-      RadixStr val packedKey rest ->
-        maybe id (\_ ys -> [] : ys) val $
-        map (packedKey :) $
-        go rest
+    prependIfJust
+      :: Maybe a
+      -> Int
+      -> (MutableByteArray s, [ShortByteString])
+      -> ST s (MutableByteArray s, [ShortByteString])
+    prependIfJust Nothing _ res       = pure res
+    prependIfJust Just{}  i (arr, xs) = do
+      x <- freezeByteArray arr 0 i
+      pure (arr, byteArrayToBSS x : xs)
+
+    go
+      :: MutableByteArray s
+      -> Int
+      -> [ShortByteString]
+      -> RadixTree a
+      -> ST s (MutableByteArray s, [ShortByteString])
+    go arr !pos acc = \case
+      RadixNode val children -> do
+        prependIfJust val pos =<<
+          IM.foldrWithKey (\c child mkAcc -> do
+                              (arr', acc') <- mkAcc
+                              arr''        <- appendChar arr' pos (fromIntegral c)
+                              go arr'' (pos + 1) acc' child)
+            (pure (arr, acc))
+            children
+      RadixStr val packedKey rest -> do
+        arr' <- appendString arr pos packedKey
+        prependIfJust val pos =<< go arr' (pos + BSS.length packedKey) acc rest
+
 
 -- | O(n) Get set of all keys stored in a radix tree.
 keysSet :: RadixTree a -> Set ShortByteString

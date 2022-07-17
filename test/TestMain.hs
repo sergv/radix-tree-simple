@@ -72,6 +72,10 @@ qcProps = adjustOption (\(QuickCheckTests n) -> QuickCheckTests (max 10000 n)) $
     \(xs :: [(ShortByteString, A)]) ->
       RT.toAscList (RT.fromList xs) == M.toAscList (M.fromList xs)
 
+  , QC.testProperty "∀ xs: RT.keys xs == M.keys xs" $
+    \(xs :: [(ShortByteString, A)]) ->
+      RT.keys (RT.fromList xs) == M.keys (M.fromList xs)
+
   , QC.testProperty "∀ xs: RT.size (RT.fromList xs) == M.size (M.fromList xs)" $
     \(xs :: [(ShortByteString, A)]) ->
       RT.size (RT.fromList xs) == M.size (M.fromList xs)

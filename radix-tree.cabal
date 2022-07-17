@@ -101,6 +101,7 @@ benchmark radix-tree-bench
     , bytestring
     , containers
     , deepseq
+    , hashable
     , hashtables
     , radix-tree
     , tasty-bench

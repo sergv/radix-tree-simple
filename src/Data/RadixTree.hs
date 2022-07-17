@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.RadixTree
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache 2.0
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- This is an implementation of the radix tree datastructure. Interface
