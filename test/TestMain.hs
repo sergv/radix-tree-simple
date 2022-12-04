@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -13,13 +14,13 @@
 module Main (main) where
 
 import Data.ByteString.Short (ShortByteString)
-import qualified Data.ByteString.Short as BSS
+import Data.ByteString.Short qualified as BSS
 
 import Data.Char
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
+import Data.Map.Strict qualified as M
 import Data.RadixTree (RadixTree)
-import qualified Data.RadixTree as RT
+import Data.RadixTree qualified as RT
 import Data.Word
 
 import Test.QuickCheck
