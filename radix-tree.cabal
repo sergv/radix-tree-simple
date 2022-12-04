@@ -28,6 +28,9 @@ tested-with:
 build-type:
   Simple
 
+extra-source-files:
+  Readme.md
+
 homepage: https://github.com/sergv/radix-tree
 
 source-repository head

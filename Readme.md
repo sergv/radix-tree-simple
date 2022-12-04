@@ -1,6 +1,5 @@
-#+STARTUP: content
 
-* A memory-efficient map from strings to arbitrary values
+# A memory-efficient map from strings to arbitrary values
 
   [[https://img.shields.io/badge/license-BSD_3-green.svg?dummy]]
   [[https://travis-ci.org/sergv/radix-tree][https://travis-ci.org/sergv/radix-tree.svg?branch=master]]
@@ -12,14 +11,14 @@
   in a way thas shares their common prefixes. Thus memory savings can be
   achieved if a lot of keys have the same prefix.
 
-** Supported GHC versions
+## Supported GHC versions
 
-Tested with GHC ~8.0.2~, ~8.2.2~, ~8.4.3~.
+Tested with GHC `8.0.2`, `8.2.2`, `8.4.3`.
 
-** Benchmark
+## Benchmark
    Running on my laptop equipped with i7-4710MQ 2.5-3.3GHz CPU I get:
 
-#+BEGIN_EXAMPLE
+```
 creation/Data.RadixTree                  mean 126.7 ms  ( +- 4.304 ms  )
 creation/Data.Map                        mean 124.4 ms  ( +- 7.775 ms  )
 creation/Data.HashMap                    mean 99.44 ms  ( +- 7.105 ms  )
@@ -49,5 +48,5 @@ toList/Data.HashMap                      mean 3.363 ms  ( +- 118.2 μs  )
 union/Data.RadixTree                     mean 17.32 ms  ( +- 368.5 μs  )
 union/Data.Map                           mean 11.59 ms  ( +- 277.2 μs  )
 union/Data.HashMap                       mean 20.78 ms  ( +- 1.427 ms  )
-#+END_EXAMPLE
+```
 
