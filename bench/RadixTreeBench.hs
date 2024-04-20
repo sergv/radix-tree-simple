@@ -2,6 +2,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
+{-# LANGUAGE ImportQualifiedPost #-}
+
+{-# OPTIONS_GHC -Wno-x-partial #-}
+
 module Main (main) where
 
 import Control.Arrow
@@ -10,20 +14,26 @@ import Control.Exception
 import Data.Coerce
 import Data.Foldable
 import Data.Hashable
+import Data.List qualified as L
 
-import qualified Data.ByteString.Short as BSS
-import qualified Data.HashMap.Strict as HM
+import Data.ByteString.Short qualified as BSS
+import Data.HashMap.Strict qualified as HM
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.IO as TLIO
+import Data.Map.Strict qualified as M
+import Data.Text.Encoding qualified as TE
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.IO qualified as TLIO
 
-import qualified Data.HashTable.IO as HT
+import Data.HashTable.IO qualified as HT
 
 import Test.Tasty.Bench
 
-import qualified Data.RadixTree.Internal as RT
+import Data.RadixTree.Internal qualified as RT
+
+-- import Data.Patricia.Word.Strict qualified as Patricia.Strict
+-- import Data.Zebra.Word qualified as Zebra
+import Data.Radix1Tree.Word8.Strict qualified as Radix1Tree.Strict
+import Data.Radix1Tree.Word8.Key.Unsafe qualified as Radix1Tree.Strict
 
 newtype ShortByteStringFastOrd = ShortByteStringFastOrd BSS.ShortByteString
   deriving (Eq, Hashable, NFData)
@@ -34,7 +44,7 @@ instance Ord ShortByteStringFastOrd where
 
 main :: IO ()
 main = do
-  contents <- TLIO.readFile "/tmp/tags-ebac8dcc87fd1f1b1e7016d6585549309e3c5016-haskell-mode"
+  contents <- TLIO.readFile "tags-ebac8dcc87fd1f1b1e7016d6585549309e3c5016-haskell-mode"
   let tags :: [TL.Text]
       tags = filter (not . TL.null) $ map (head . TL.splitOn "\t") $ drop 1 $ TL.lines contents
 
@@ -89,6 +99,9 @@ main = do
       hashMap           = HM.fromList tags''
       hashMapRev        = HM.fromList tagsRev''
 
+      radixNewTree      = L.foldl' (\acc (k, v) -> Radix1Tree.Strict.insert (Radix1Tree.Strict.unsafeFeedShortByteString k) v acc) Radix1Tree.Strict.empty tags''
+      radixNewTreeRev   = L.foldl' (\acc (k, v) -> Radix1Tree.Strict.insert (Radix1Tree.Strict.unsafeFeedShortByteString k) v acc) Radix1Tree.Strict.empty tagsRev''
+
   evaluate $ rnf radixTree
   evaluate $ rnf radixTreeRev
   evaluate $ rnf treeMap
@@ -97,6 +110,9 @@ main = do
   evaluate $ rnf treeMapRevFastOrd
   evaluate $ rnf hashMap
   evaluate $ rnf hashMapRev
+
+  evaluate $ rnf radixNewTree
+  evaluate $ rnf radixNewTreeRev
 
   (basic  :: HT.BasicHashTable  BSS.ShortByteString ()) <- HT.new
   -- (linear :: HT.LinearHashTable BSS.ShortByteString ()) <- HT.new
@@ -121,34 +137,41 @@ main = do
       , bench "CuckooHashTable"  $ nfIO $ do
           (ht :: HT.CuckooHashTable BSS.ShortByteString ()) <- HT.new
           for_ tags'' $ \(k, v) -> HT.insert ht k v
+      , bench "Data.Radix1Tree.Word8.Strict" $
+        nf
+          (L.foldl' (\acc (k, v) -> Radix1Tree.Strict.insert (Radix1Tree.Strict.unsafeFeedShortByteString k) v acc) Radix1Tree.Strict.empty)
+          tags''
       ]
     , bgroup "lookup"
         [ bgroup "present"
-          [ bench "Data.RadixTree"    $ nf (map (`RT.lookup` radixTree))      queriesPresent
-          , bench "Data.Map"          $ nf (map (`M.lookup`  treeMap))        queriesPresent
-          , bench "Data.Map fast ord" $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesPresent)
-          , bench "Data.HashMap"      $ nf (map (`HM.lookup` hashMap))        queriesPresent
-          , bench "BasicHashTable"    $ nfIO $ traverse (HT.lookup basic)     queriesPresent
-          -- , bench "LinearHashTable"   $ nfIO $ traverse (HT.lookup linear)    queriesPresent
-          , bench "CuckooHashTable"   $ nfIO $ traverse (HT.lookup cuckoo)    queriesPresent
+          [ bench "Data.RadixTree"               $ nf (map (`RT.lookup` radixTree))      queriesPresent
+          , bench "Data.Map"                     $ nf (map (`M.lookup`  treeMap))        queriesPresent
+          , bench "Data.Map fast ord"            $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesPresent)
+          , bench "Data.HashMap"                 $ nf (map (`HM.lookup` hashMap))        queriesPresent
+          , bench "BasicHashTable"               $ nfIO $ traverse (HT.lookup basic)     queriesPresent
+          -- , bench "LinearHashTable"           $ nfIO $ traverse (HT.lookup linear)    queriesPresent
+          , bench "CuckooHashTable"              $ nfIO $ traverse (HT.lookup cuckoo)    queriesPresent
+          , bench "Data.Radix1Tree.Word8.Strict" $ nf (map ((`Radix1Tree.Strict.lookup` radixNewTree) . Radix1Tree.Strict.unsafeFeedShortByteString)) queriesPresent
           ]
         , bgroup "missing"
-          [ bench "Data.RadixTree"    $ nf (map (`RT.lookup` radixTree))      queriesMissing
-          , bench "Data.Map"          $ nf (map (`M.lookup`  treeMap))        queriesMissing
-          , bench "Data.Map fast ord" $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesMissing)
-          , bench "Data.HashMap"      $ nf (map (`HM.lookup` hashMap))        queriesMissing
-          , bench "BasicHashTable"    $ nfIO $ traverse (HT.lookup basic)     queriesMissing
-          -- , bench "LinearHashTable"   $ nfIO $ traverse (HT.lookup linear)    queriesMissing
-          , bench "CuckooHashTable"   $ nfIO $ traverse (HT.lookup cuckoo)    queriesMissing
+          [ bench "Data.RadixTree"               $ nf (map (`RT.lookup` radixTree))      queriesMissing
+          , bench "Data.Map"                     $ nf (map (`M.lookup`  treeMap))        queriesMissing
+          , bench "Data.Map fast ord"            $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesMissing)
+          , bench "Data.HashMap"                 $ nf (map (`HM.lookup` hashMap))        queriesMissing
+          , bench "BasicHashTable"               $ nfIO $ traverse (HT.lookup basic)     queriesMissing
+          -- , bench "LinearHashTable"           $ nfIO $ traverse (HT.lookup linear)    queriesMissing
+          , bench "CuckooHashTable"              $ nfIO $ traverse (HT.lookup cuckoo)    queriesMissing
+          , bench "Data.Radix1Tree.Word8.Strict" $ nf (map ((`Radix1Tree.Strict.lookup` radixNewTree) . Radix1Tree.Strict.unsafeFeedShortByteString)) queriesMissing
           ]
         , bgroup "both"
-          [ bench "Data.RadixTree"    $ nf (map (`RT.lookup` radixTree))      queriesBoth
-          , bench "Data.Map"          $ nf (map (`M.lookup`  treeMap))        queriesBoth
-          , bench "Data.Map fast ord" $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesBoth)
-          , bench "Data.HashMap"      $ nf (map (`HM.lookup` hashMap))        queriesBoth
-          , bench "BasicHashTable"    $ nfIO $ traverse (HT.lookup basic)     queriesBoth
-          -- , bench "LinearHashTable"   $ nfIO $ traverse (HT.lookup linear)    queriesBoth
-          , bench "CuckooHashTable"   $ nfIO $ traverse (HT.lookup cuckoo)    queriesBoth
+          [ bench "Data.RadixTree"               $ nf (map (`RT.lookup` radixTree))      queriesBoth
+          , bench "Data.Map"                     $ nf (map (`M.lookup`  treeMap))        queriesBoth
+          , bench "Data.Map fast ord"            $ nf (map (`M.lookup`  treeMapFastOrd)) (coerce queriesBoth)
+          , bench "Data.HashMap"                 $ nf (map (`HM.lookup` hashMap))        queriesBoth
+          , bench "BasicHashTable"               $ nfIO $ traverse (HT.lookup basic)     queriesBoth
+          -- , bench "LinearHashTable"           $ nfIO $ traverse (HT.lookup linear)    queriesBoth
+          , bench "CuckooHashTable"              $ nfIO $ traverse (HT.lookup cuckoo)    queriesBoth
+          , bench "Data.Radix1Tree.Word8.Strict" $ nf (map ((`Radix1Tree.Strict.lookup` radixNewTree) . Radix1Tree.Strict.unsafeFeedShortByteString)) queriesBoth
           ]
         ]
     , bgroup "keys"
@@ -166,5 +189,6 @@ main = do
       , bench "Data.Map"          $ nf (uncurry M.union) (treeMap, treeMapRev)
       , bench "Data.Map fast ord" $ nf (uncurry M.union) (treeMapFastOrd, treeMapRevFastOrd)
       , bench "Data.HashMap"      $ nf (uncurry HM.union) (hashMap, hashMapRev)
+      , bench "Data.Radix1Tree.Word8.Strict" $ nf (uncurry Radix1Tree.Strict.union) (radixNewTree, radixNewTreeRev)
       ]
     ]
